@@ -68,7 +68,8 @@
                 return new Promise(function(resolve, reject) {
                   if (
                     username === me.textContent ||
-                    username === 'dang'
+                    username === 'dang' ||
+                    usename === 'tomhow'
                   ) {
                     resolve()
                     return
@@ -119,7 +120,8 @@
 
           if (
             commenter.textContent === me.textContent ||
-            commenter.textContent === 'dang'
+            commenter.textContent === 'dang' ||
+            commenter.textContent === 'tomhow'
           ) {
             return
           }
@@ -202,7 +204,8 @@
         
         if (
           submitter.textContent === me.textContent ||
-          submitter.textContent === 'dang'
+          submitter.textContent === 'dang' ||
+          submitter.textContent === 'tomhow'
         ) {
           return
         }
