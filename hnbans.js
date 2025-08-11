@@ -109,9 +109,7 @@
     if (pathname === '/item' || pathname === '/threads') {
 
       Promise.all(
-        Array.from(
-          document.querySelectorAll('.comhead')
-        ).map(async function(comhead) {
+        document.querySelectorAll('.comhead').map(async function(comhead) {
           var commenter = comhead.querySelector('.hnuser')
           if (!commenter) {
             return
@@ -192,9 +190,7 @@
     }
 
     Promise.all(
-      Array.from(
-        document.querySelectorAll('.athing.submission + tr')
-      ).map(async function(submission_byline) {
+      document.querySelectorAll('.athing.submission + tr').map(async function(submission_byline) {
         var submitter = submission_byline.querySelector('.hnuser')
         if (!submitter) {
           return
