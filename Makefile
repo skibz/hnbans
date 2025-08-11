@@ -1,9 +1,6 @@
 
-lookup.hnbans-firefox.zip := 2
-lookup.hnbans-chrome.zip := 3
-
-hnbans-chrome.zip: *.js *.png
-	MANIFEST=$$(jq -M '. += {"manifest_version": $(lookup.$@)}' < manifest.template.json) && \
+hnbans.zip: *.js *.png
+	MANIFEST=$$(jq -M '. += {"manifest_version": 3}' < manifest.template.json) && \
 	echo $$MANIFEST > manifest.json && \
 	zip $@ $^ manifest.json
 
