@@ -1,0 +1,19 @@
+{
+  "name": "HN Bans",
+  "short_name": "hnbans",
+  "description": "hide submissions and comments from a configurable list of users",
+  "version": "0.0.0",
+  "author": "Ant Cosentino",
+  "homepage_url": "https://github.com/skibz/hnbans",
+  "content_scripts": [
+    {
+      "matches": ["https://news.ycombinator.com/*"],
+      "js": ["hnbans.js"]
+    }
+  ],
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+   "128": "icon128.png"
+  }
+}
