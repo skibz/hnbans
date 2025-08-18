@@ -5,27 +5,57 @@
     return
   }
 
+  var protected_users = {
+    dang: 1,
+    tomhow: 1
+  }
+  protected_users[me.textContent] = 1
+
+  var divider = function() {
+    var span = document.createElement('span')
+    span.textContent = ' | '
+    return span
+  }
+
   var hnbans = indexedDB.open('hnbans', 1)
 
-  hnbans.onupgradeneeded = function(event) {
-    var db = event.target.result
+  hnbans.onerror = function() {
+    console.log('hnbans error', hnbans.error)
+  }
+
+  hnbans.onupgradeneeded = function() {
+    var db = hnbans.result
     if (db.objectStoreNames.contains('users')) {
       return
     }
     db.createObjectStore('users', {keyPath: 'value'})
   }
 
-  hnbans.onerror = function() {
-    console.log('hnbans error', hnbans.error)
-  }
-
   hnbans.onsuccess = function() {
     var db = hnbans.result
+
+    var add_to_banlist = function(username, error, success) {
+      var tx = db.transaction('users', 'readwrite')
+      var put = tx.objectStore('users').put({value: username})
+      put.onerror = function() {
+        error(put.error)
+      }
+      put.onsuccess = success
+    }
+
+    var remove_from_banlist = function(username, error, success) {
+      var tx = db.transaction('users', 'readwrite')
+      var remove = tx.objectStore('users').delete(username)
+      remove.onerror = function() {
+        error(remove.error)
+      }
+      remove.onsuccess = success
+    }
 
     var {pathname, search} = location
 
     if (`${pathname}${search}` === `/user?id=${me.textContent}`) {
-      var hnbans_options = [
+      document.querySelector('#bigbox').insertAdjacentHTML('afterend', [
         '<tr>',
           '<td>',
             '<table>',
@@ -33,78 +63,85 @@
                 '<tr>',
                   '<td valign="top">banlist:</td>',
                   '<td>',
-                    '<textarea id="banlist" rows="10"></textarea>',
+                    '<select id="banlist" multiple></select>',
                     '<br>',
                     '<br>',
-                    '<button id="update-banlist">update banlist</button>',
+                    '<button id="remove-from-banlist">remove selected</button>',
+                  '</td>',
+                '</tr>',
+                '<tr>',
+                  '<td valign="top">add to banlist:</td>',
+                  '<td>',
+                    '<input id="ban">',
+                    '<br>',
+                    '<br>',
+                    '<button id="add-to-banlist">add</button>',
                   '</td>',
                 '</tr>',
               '</tbody>',
             '</table>',
           '</td>',
         '</tr>',
-      ].join('')
+      ].join(''))
 
       var tx = db.transaction('users', 'readonly')
       var query = tx.objectStore('users').getAll()
-      
-      query.onsuccess = function() {
-        var textarea = document.getElementById('banlist')
-        var button = document.getElementById('update-banlist')
 
-        textarea.value = query.result.map(function(username) {
-          return username.value
-        }).join('\n')
-
-        button.onclick = function() {
-          var tx = db.transaction('users', 'readwrite')
-
-          var clear = tx.objectStore('users').clear()
-
-          clear.onsuccess = function() {
-
-            Promise.all(
-              textarea.value.split('\n').map(function(username) {
-                return new Promise(function(resolve, reject) {
-                  if (
-                    username === me.textContent ||
-                    username === 'dang' ||
-                    usename === 'tomhow'
-                  ) {
-                    resolve()
-                    return
-                  }
-
-                  var tx = db.transaction('users', 'readwrite')
-                  var put = tx.objectStore('users').put({value: username})
-
-                  put.onsuccess = function() {
-                    resolve()
-                  }
-                  
-                  put.onerror = function() {
-                    reject(query.error)
-                  }
-                })
-              })
-            ).then(function() {
-              location.reload()
-            }).catch(function(err) {
-              console.log('hnbans error', err)
-            })
-          }
-
-          clear.onerror = function() {
-            console.log('hnbans error', clear.error)
-          }
-        }
-      }
-      
       query.onerror = function() {
         console.log('hnbans error', query.error)
       }
+      
+      query.onsuccess = function() {
+        var banlist = document.getElementById('banlist')
+        var ban = document.getElementById('ban')
+        var add = document.getElementById('add-to-banlist')
+        var remove = document.getElementById('remove-from-banlist')
 
-      document.querySelector('#bigbox').insertAdjacentHTML('afterend', hnbans_options)
+        banlist.size = 10
+        banlist.style.width = '25ch'
+
+        query.result.forEach(function(username) {
+          var option = document.createElement('option')
+          option.value = username.value
+          option.textContent = username.value
+          banlist.appendChild(option)
+        })
+
+        add.onclick = function() {
+          if (!ban.value) {
+            return
+          }
+
+          add_to_banlist(
+            ban.value,
+            console.log.bind(console, 'hnbans error'),
+            location.reload.bind(location)
+          )
+        }
+
+        remove.onclick = function() {
+          var selected = Array.from(banlist.selectedOptions)
+          if (!selected.length) {
+            return
+          }
+
+          Promise.all(
+            selected.map(function(option) {
+              return new Promise(function(resolve, reject) {
+                remove_from_banlist(
+                  option.value,
+                  reject,
+                  resolve
+                )
+              })
+            })
+          ).then(function() {
+            location.reload()
+          }).catch(function(err) {
+            console.log('hnbans error', err)
+          })
+        }
+      }
     }
 
     if (pathname === '/item' || pathname === '/threads') {
@@ -114,78 +151,77 @@
           document.querySelectorAll('.comhead')
         ).map(async function(comhead) {
           var commenter = comhead.querySelector('.hnuser')
-          if (!commenter) {
-            return
-          }
-
-          if (
-            commenter.textContent === me.textContent ||
-            commenter.textContent === 'dang' ||
-            commenter.textContent === 'tomhow'
-          ) {
+          if (!commenter || commenter.textContent in protected_users) {
             return
           }
 
           var tx = db.transaction('users', 'readonly')
           var query = tx.objectStore('users').get(commenter.textContent)
+
+          query.onerror = function() {
+            console.log('hnbans error', query.error)
+          }
           
           query.onsuccess = function() {
             var banned = query.result
 
             var navs = comhead.querySelector('.navs')
 
-            var divider = document.createElement('span')
-            divider.textContent = ' | '
+            var ban_divider = divider()
 
             var ban = document.createElement('a')
-            ban.classList.add('ban')
             ban.textContent = banned ? 'unban' : 'ban'
             ban.href = 'javascript:void(0)'
             ban.onclick = function() {
-              if (banned) {
-                var tx = db.transaction('users', 'readwrite')
-                var remove = tx.objectStore('users').delete(commenter.textContent)
-
-                remove.onsuccess = function() {
-                  location.reload()
-                }
-                
-                remove.onerror = function() {
-                  console.log('hnbans error', remove.error)
-                }
-                return
-              }
-
-              var tx = db.transaction('users', 'readwrite')
-              var put = tx.objectStore('users').put({value: commenter.textContent})
-
-              put.onsuccess = function() {
-                location.reload()
-              }
-              
-              put.onerror = function() {
-                console.log('hnbans error', put.error)
-              }
+              var action = banned ? remove_from_banlist : add_to_banlist
+              action(
+                commenter.textContent,
+                console.log.bind(console, 'hnbans error'),
+                location.reload.bind(location)
+              )
             }
 
-            navs.insertBefore(divider, navs.querySelector('.clicky'))
-            navs.insertBefore(ban, divider)
+            var clicky = navs.querySelector('.clicky')
+
+            navs.insertBefore(ban_divider, clicky)
+            navs.insertBefore(ban, ban_divider)
 
             if (!banned) {
-              // commenter is not in the banlist
               return
             }
 
             var td_default = comhead.parentNode.parentNode
-            var comment = td_default.querySelector('.comment .commtext')
-            comment.textContent = '[user is banned]'
+            var comment = td_default.querySelector('.comment')
+            var comment_text = comment.querySelector('.commtext')
+            comment_text.style.display = 'none'
+            var notice = document.createElement('p')
+            var br = document.createElement('br')
+            var toggle = document.createElement('a')
+
+            notice.textContent = '[user is banned]'
+            notice.appendChild(br)
+            toggle.textContent = 'show comment'
+            toggle.href = 'javascript:void(0)'
+            toggle.onclick = function() {
+              if (comment_text.style.display === 'none') {
+                comment_text.style.display = ''
+                toggle.textContent = 'hide comment'
+                return
+              }
+              comment_text.style.display = 'none'
+              toggle.textContent = 'show comment'
+            }
+
+            comment.insertBefore(notice, comment.querySelector('.commtext'))
+
+            var toggle_divider = divider()
+
+            navs.insertBefore(toggle_divider, clicky)
+            navs.insertBefore(toggle, toggle_divider)
+
             var reply = td_default.querySelector('.comment .reply')
             var reply_parent = reply.parentNode
             reply_parent.removeChild(reply)
-          }
-
-          query.onerror = function() {
-            console.log('hnbans error', query.error)
           }
         })
       ).catch(function(err) {
@@ -198,37 +234,49 @@
         document.querySelectorAll('.athing.submission + tr')
       ).map(async function(submission_byline) {
         var submitter = submission_byline.querySelector('.hnuser')
-        if (!submitter) {
-          return
-        }
-        
-        if (
-          submitter.textContent === me.textContent ||
-          submitter.textContent === 'dang' ||
-          submitter.textContent === 'tomhow'
-        ) {
+        if (!submitter || submitter.textContent in protected_users) {
           return
         }
 
         var tx = db.transaction('users', 'readonly')
         var query = tx.objectStore('users').get(submitter.textContent)
+
+        query.onerror = function() {
+          console.log('hnbans error', query.error)
+        }
         
         query.onsuccess = function() {
-          if (!query.result) {
-            // submitter is not in the banlist
+          var banned = query.result
+          if (!banned) {
             return
           }
 
           var submission_id = submission_byline.querySelector('.score').id.split('_').pop()
           var submission = document.getElementById(submission_id)
-          var submission_parent = submission.parentNode
-          submission_parent.removeChild(submission)
-          var submission_byline_parent = submission_byline.parentNode
-          submission_byline_parent.removeChild(submission_byline)
-        }
+          if (!submission) {
+            return
+          }
 
-        query.onerror = function() {
-          console.log('hnbans error', query.error)
+          var submission_title = submission.querySelector('.titleline a')
+          submission_title.textContent = '[banned user submission] ' + submission_title.textContent
+
+          var subline = submission_byline.querySelector('.subline')
+
+          var unban_divider = divider()
+
+          var unban = document.createElement('a')
+          unban.textContent = 'unban'
+          unban.href = 'javascript:void(0)'
+          unban.onclick = function() {
+            remove_from_banlist(
+              submitter.textContent,
+              console.log.bind(console, 'hnbans error'),
+              location.reload.bind(location)
+            )
+          }
+
+          subline.insertBefore(unban_divider, subline.querySelector('.clicky'))
+          subline.insertBefore(unban, unban_divider)
         }
       })
     ).catch(function(err) {
