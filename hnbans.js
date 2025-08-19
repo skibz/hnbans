@@ -11,7 +11,10 @@
   }
   protected_users[me.textContent] = 1
 
-  var hnbans = indexedDB.open('hnbans', 1)
+  var database = 'hnbans'
+  var table = 'users'
+
+  var hnbans = indexedDB.open(database, 1)
 
   hnbans.onerror = function() {
     console.log('hnbans error', hnbans.error)
@@ -19,10 +22,10 @@
 
   hnbans.onupgradeneeded = function() {
     var db = hnbans.result
-    if (db.objectStoreNames.contains('users')) {
+    if (db.objectStoreNames.contains(table)) {
       return
     }
-    db.createObjectStore('users', {keyPath: 'value'})
+    db.createObjectStore(table, {keyPath: 'value'})
   }
 
   hnbans.onsuccess = function() {
@@ -34,9 +37,16 @@
       return span
     }
 
+    var read = function() {
+      return db.transaction(table, 'readonly').objectStore(table)
+    }
+
+    var write = function() {
+      return db.transaction(table, 'readwrite').objectStore(table)
+    }
+
     var in_banlist = function(username, error, success) {
-      var tx = db.transaction('users', 'readonly')
-      var query = tx.objectStore('users').get(username)
+      var query = read().get(username)
 
       query.onerror = function() {
         error(query.error)
@@ -48,20 +58,22 @@
     }
 
     var add_to_banlist = function(username, error, success) {
-      var tx = db.transaction('users', 'readwrite')
-      var put = tx.objectStore('users').put({value: username})
+      var put = write().put({value: username})
+
       put.onerror = function() {
         error(put.error)
       }
+
       put.onsuccess = success
     }
 
     var remove_from_banlist = function(username, error, success) {
-      var tx = db.transaction('users', 'readwrite')
-      var remove = tx.objectStore('users').delete(username)
+      var remove = write().delete(username)
+
       remove.onerror = function() {
         error(remove.error)
       }
+
       remove.onsuccess = success
     }
 
@@ -97,8 +109,7 @@
         '</tr>',
       ].join(''))
 
-      var tx = db.transaction('users', 'readonly')
-      var query = tx.objectStore('users').getAll()
+      var query = read().getAll()
 
       query.onerror = function() {
         console.log('hnbans error', query.error)
