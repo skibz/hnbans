@@ -232,10 +232,6 @@
 
               navs.insertBefore(toggle_divider, clicky)
               navs.insertBefore(toggle, toggle_divider)
-
-              var reply = td_default.querySelector('.comment .reply')
-              var reply_parent = reply.parentNode
-              reply_parent.removeChild(reply)
             }
           )
         })
